@@ -50,13 +50,53 @@ def base_json(file_data):
         par_cnt = recursive_methods(api, found_methods, par_cnt)
         print_results(api["name"], found_methods, par_cnt)
 
+# preload swagger parameters https://swagger.io/docs/specification/components/
+def swaggerParPreload(data):
+    par_dict = {}
+    definitions = data.get("definitions", {}) # 2.0 support
+    for key, value in definitions.items():
+        properties = value.get("properties", None)
+        par_dict[key] = len(properties) if properties else 1
+
+    schemas = data.get("components", {}).get("schemas", {}) # 3.0 support
+    for key, value in schemas.items():
+        properties = value.get("properties", None)
+        par_dict[key] = len(properties) if properties else 1
+
+    parameters = data.get("components", {}).get("parameters", {}) # 3.0 support
+    for key, value in parameters.items():
+        par_schema = value.get("schema", None)
+        if "$ref" in par_schema:
+            last_word = par_schema["$ref"].split("/")[-1]
+            par_dict[key] = par_dict[last_word] if par_schema else 1
+        else:
+            par_dict[key] = 1
+
+    #print(par_dict)
+    return par_dict
+
+def swaggerParMatch(parameter, par_dict):
+    cnt = 0
+    for x in parameter:
+        if "$ref" in x:
+            last_word = x["$ref"].split("/")[-1]
+            cnt += par_dict[last_word]
+        elif "schema" in x and "$ref" in x["schema"]:
+            last_word = x["schema"]["$ref"].split("/")[-1]
+            cnt += par_dict[last_word]
+        else:
+            cnt += 1
+    return cnt 
+
 def swaggerJsonYaml(data):
+    par_dict = swaggerParPreload(data)
     found_methods = []
     par_cnt = 0
     for path in data["paths"]:
         for method in data["paths"][path]:
             found_methods.append(method)
-            par_cnt += len(data["paths"][path][method]["parameters"])
+            par_cnt += swaggerParMatch(data["paths"][path][method]["parameters"], par_dict)
+            #par_cnt += len(data["paths"][path][method]["parameters"])
     print_results(data["info"]["title"], found_methods, par_cnt)
 
 def gotJson(data):
