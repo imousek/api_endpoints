@@ -112,14 +112,14 @@ def gotJson(data):
 
 def main():
     try:
-        with open(args.input_file) as f:
+        with open(args.input_file, encoding="utf-8") as f:
             data = json.load(f)
             gotJson(data)
             return
     except json.JSONDecodeError:
         print("Not json, trying yaml")
     try:
-        with open(args.input_file) as f:
+        with open(args.input_file, encoding="utf-8") as f:
             data = yaml.safe_load(f)
             swaggerJsonYaml(data)
             return
