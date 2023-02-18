@@ -1,9 +1,13 @@
 import json
 import yaml
 import argparse
+import glob
+import os
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-i", "--input", dest = "input_file")
+#parser.add_argument("-i", "--input", dest = "input_file")
+parser.add_argument("-i", "--input", type=str, nargs="+", dest="input")
+parser.add_argument("-d", "--dir", type=str, dest="dir")
 parser.add_argument("-o", "--output", dest = "output_file")
 args = parser.parse_args()
 
@@ -110,21 +114,34 @@ def gotJson(data):
         return
     print("Unrecognized format")
 
-def main():
+def multipleFiles(filename):
+    print('File: ', filename)
     try:
-        with open(args.input_file, encoding="utf-8") as f:
+        with open(filename, encoding="utf-8") as f:
             data = json.load(f)
             gotJson(data)
             return
     except json.JSONDecodeError:
         print("Not json, trying yaml")
     try:
-        with open(args.input_file, encoding="utf-8") as f:
+        with open(filename, encoding="utf-8") as f:
             data = yaml.safe_load(f)
             swaggerJsonYaml(data)
             return
     except yaml.YAMLError:
         print("Not yaml either")
+
+
+def main():
+    for input_path in args.input:
+        if os.path.isdir(input_path):
+            print("Folder ", input_path)
+            files_from_dir = glob.glob(input_path + "/*")
+            for file in files_from_dir:
+                multipleFiles(file)
+        else:
+            multipleFiles(input_path)
+        print("\n")
 
 
 if __name__=="__main__":
