@@ -76,6 +76,18 @@ def swaggerParPreload(data):
         else:
             par_dict[key] = 1
 
+    requestBodies = data.get("components", {}).get("requestBodies", {}) # 3.0 support
+    for key, value in requestBodies.items():
+        req_content = value.get("content", {})
+        for content_type, content_value in req_content.items():
+            if "oneOf" in content_value["schema"]:
+                for x in content_value["schema"]["oneOf"]:
+                    last_word = x["$ref"].split("/")[-1]
+                    par_dict[key] = par_dict[last_word] if "$ref" in x else 1
+            else:
+                last_word = content_value["schema"]["$ref"].split("/")[-1]
+                par_dict[key] = par_dict[last_word] if "$ref" in content_value["schema"] else 1
+
     #print(par_dict)
     return par_dict
 
@@ -83,6 +95,7 @@ def swaggerParMatch(parameter, par_dict):
     cnt = 0
     for x in parameter:
         if "$ref" in x:
+           # print(x)
             last_word = x["$ref"].split("/")[-1]
             cnt += par_dict[last_word]
         elif "schema" in x and "$ref" in x["schema"]:
@@ -90,6 +103,20 @@ def swaggerParMatch(parameter, par_dict):
             cnt += par_dict[last_word]
         else:
             cnt += 1
+    return cnt 
+
+def swaggerParMatchRequestBody(parameter, par_dict):
+    cnt = 0
+    if "$ref" in parameter:
+        last_word = parameter["$ref"].split("/")[-1]
+        cnt += par_dict[last_word]
+    elif "content" in parameter:
+        for reqBody in parameter["content"]:
+            last_word = parameter["content"][reqBody]["schema"]["$ref"].split("/")[-1]
+            cnt += par_dict[last_word]
+    else:
+        cnt+=1
+
     return cnt 
 
 def swaggerJsonYaml(data):
@@ -100,6 +127,11 @@ def swaggerJsonYaml(data):
         for method in data["paths"][path]:
             found_methods.append(method)
             par_cnt += swaggerParMatch(data["paths"][path][method]["parameters"], par_dict)
+            if "requestBody" in data["paths"][path][method]:
+                try:
+                    par_cnt += swaggerParMatchRequestBody(data["paths"][path][method]["requestBody"], par_dict)
+                except Exception as e:
+                    print(f"Error occured during requestBody count, count might not be accurate - {e}")
             #par_cnt += len(data["paths"][path][method]["parameters"])
     print_results(data["info"]["title"], found_methods, par_cnt)
 
